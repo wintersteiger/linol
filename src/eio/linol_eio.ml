@@ -9,7 +9,7 @@ module IO_eio :
     with type 'a t = 'a
      and type env = Eio_unix.Stdenv.base
      and type in_channel = Eio.Buf_read.t
-     and type out_channel = Eio_unix.sink_ty Eio.Std.r = struct
+     and type out_channel = Eio.Mutex.t * Eio_unix.sink_ty Eio.Std.r = struct
   type 'a t = 'a
 
   let ( let+ ) x f = f x
@@ -28,17 +28,21 @@ module IO_eio :
   let stdin env =
     Eio.Buf_read.of_flow ~max_size:1_000_000 (Eio.Stdenv.stdin env)
 
-  let stdout = Eio.Stdenv.stdout
+  let stdout_mutex = Eio.Mutex.create ()
+  let stdout env = stdout_mutex, Eio.Stdenv.stdout env
 
   type env = Eio_unix.Stdenv.base
   type in_channel = Eio.Buf_read.t
-  type out_channel = Eio_unix.sink_ty Eio.Std.r
+  type out_channel = Eio.Mutex.t * Eio_unix.sink_ty Eio.Std.r
 
-  let write_string out_ch str = Eio.Flow.copy_string str out_ch
+  let write_string (mutex, out_ch) str =
+    Eio.Mutex.use_rw ~protect:false mutex (fun () ->
+        Eio.Flow.copy_string str out_ch)
 
-  let write out_ch bytes off len =
-    Eio.Buf_write.with_flow out_ch @@ fun w ->
-    Eio.Buf_write.bytes w ~off ~len bytes
+  let write (mutex, out_ch) bytes off len =
+    Eio.Mutex.use_rw ~protect:false mutex (fun () ->
+        Eio.Buf_write.with_flow out_ch @@ fun w ->
+        Eio.Buf_write.bytes w ~off ~len bytes)
 
   let read in_ch bytes off len =
     let str = Eio.Buf_read.take len in_ch in
