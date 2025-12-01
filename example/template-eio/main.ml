@@ -37,7 +37,7 @@ let diagnostics (_state : state_after_processing) : Lsp.Types.Diagnostic.t list
    so that users only need to override methods that they want the server to
    actually meaningfully interpret and respond to.
 *)
-class lsp_server =
+class lsp_server ~(sw: Eio.Switch.t) =
   object (self)
     inherit Linol_eio.Jsonrpc2.server
 
@@ -45,7 +45,7 @@ class lsp_server =
     val buffers : (Lsp.Types.DocumentUri.t, state_after_processing) Hashtbl.t =
       Hashtbl.create 32
 
-    method spawn_query_handler f = Linol_eio.spawn f
+    method spawn_query_handler f = Eio.Fiber.fork ~sw f
 
     (* We define here a helper method that will:
        - process a document
@@ -82,7 +82,8 @@ class lsp_server =
    and runs it as a task. *)
 let run () =
   Eio_main.run @@ fun env ->
-  let s = new lsp_server in
+  Eio.Switch.run @@ fun sw ->
+  let s = new lsp_server ~sw in
   let server = Linol_eio.Jsonrpc2.create_stdio ~env s in
   let task () =
     let shutdown () = s#get_status = `ReceivedExit in
