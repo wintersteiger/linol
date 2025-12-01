@@ -52,17 +52,14 @@ module IO_eio :
 end
 
 (** Spawn function. *)
-let spawn f =
-  let promise, resolver = Eio.Promise.create () in
-  (try
-     f ();
-     Eio.Promise.resolve_ok resolver ()
+let spawn ~sw f =
+  Eio.Fiber.fork ~sw (fun () ->
+   try
+     f ()
    with exn ->
      Printf.eprintf "uncaught exception in `spawn`:\n%s\n%!"
        (Printexc.to_string exn);
-     Eio.Promise.resolve_error resolver exn);
-
-  Eio.Promise.await_exn promise
+     raise exn)
 
 include Lsp.Types
 include IO_eio
