@@ -51,6 +51,16 @@ module IO_eio :
   let read_line in_ch = Eio.Buf_read.line in_ch
 end
 
+(** Spawn function. *)
+let spawn ~sw f =
+  Eio.Fiber.fork ~sw (fun () ->
+   try
+     f ()
+   with exn ->
+     Printf.eprintf "uncaught exception in `spawn`:\n%s\n%!"
+       (Printexc.to_string exn);
+     raise exn)
+
 include Lsp.Types
 include IO_eio
 

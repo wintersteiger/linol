@@ -45,7 +45,7 @@ class lsp_server ~(sw: Eio.Switch.t) =
     val buffers : (Lsp.Types.DocumentUri.t, state_after_processing) Hashtbl.t =
       Hashtbl.create 32
 
-    method spawn_query_handler f = Eio.Fiber.fork ~sw f
+    method spawn_query_handler f = Linol_eio.spawn ~sw f
 
     (* We define here a helper method that will:
        - process a document
